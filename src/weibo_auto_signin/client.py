@@ -1,77 +1,12 @@
 from __future__ import annotations
 
-import json
 import re
 import time
 from dataclasses import dataclass
-from http.cookies import SimpleCookie
-from typing import Protocol
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+
+import requests
 
 from weibo_auto_signin.models import TopicCheckinResult
-
-
-class SessionProtocol(Protocol):
-    cookies: dict[str, str]
-    headers: dict[str, str]
-
-    def get(
-        self,
-        url: str,
-        params: dict[str, str | int] | None = None,
-        headers: dict[str, str] | None = None,
-    ) -> "ResponseProtocol": ...
-
-
-class ResponseProtocol(Protocol):
-    headers: dict[str, str]
-
-    def json(self) -> object: ...
-
-
-class DefaultResponse:
-    def __init__(self, *, headers: dict[str, str], body: bytes) -> None:
-        self.headers = headers
-        self._body = body
-
-    def json(self) -> object:
-        return json.loads(self._body)
-
-
-class DefaultSession:
-    def __init__(self) -> None:
-        self.cookies: dict[str, str] = {}
-        self.headers: dict[str, str] = {}
-
-    def get(
-        self,
-        url: str,
-        params: dict[str, str | int] | None = None,
-        headers: dict[str, str] | None = None,
-    ) -> DefaultResponse:
-        request_url = _build_url(url, params)
-        request_headers = dict(self.headers)
-        if headers:
-            request_headers.update(headers)
-        if self.cookies:
-            request_headers["Cookie"] = "; ".join(
-                f"{key}={value}" for key, value in self.cookies.items()
-            )
-
-        request = Request(request_url, headers=request_headers, method="GET")
-        with urlopen(request) as response:
-            body = response.read()
-            response_headers = dict(response.headers.items())
-            self._update_cookies(response.headers.get_all("Set-Cookie", []))
-        return DefaultResponse(headers=response_headers, body=body)
-
-    def _update_cookies(self, set_cookie_headers: list[str]) -> None:
-        for raw_header in set_cookie_headers:
-            parsed = SimpleCookie()
-            parsed.load(raw_header)
-            for key, morsel in parsed.items():
-                self.cookies[key] = morsel.value
 
 
 @dataclass(slots=True, eq=True)
@@ -82,9 +17,9 @@ class Topic:
 
 class WeiboClient:
     def __init__(
-        self, cookies: dict[str, str], session: SessionProtocol | None = None
+        self, cookies: dict[str, str], session: requests.Session | None = None
     ) -> None:
-        self.session = session or DefaultSession()
+        self.session = session or requests.Session()
         self.session.headers.update(
             {
                 "User-Agent": "Mozilla/5.0",
@@ -164,10 +99,3 @@ class WeiboClient:
         headers = dict(self.session.headers)
         headers["Referer"] = referer
         return headers
-
-
-def _build_url(url: str, params: dict[str, str | int] | None) -> str:
-    if not params:
-        return url
-    separator = "&" if "?" in url else "?"
-    return f"{url}{separator}{urlencode(params)}"

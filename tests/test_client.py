@@ -1,3 +1,5 @@
+import requests
+
 from weibo_auto_signin.client import Topic, WeiboClient
 
 
@@ -48,6 +50,12 @@ def test_bootstrap_session_sets_uid_and_xsrf_token() -> None:
 
     assert client.bootstrap_session() == "12345"
     assert session.headers["x-xsrf-token"] == "xsrf-token"
+
+
+def test_default_session_uses_requests_session() -> None:
+    client = WeiboClient({"SUB": "1", "SUBP": "2"})
+
+    assert isinstance(client.session, requests.Session)
 
 
 def test_fetch_followed_topics_returns_topic_objects() -> None:
