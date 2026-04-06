@@ -30,3 +30,22 @@ def test_load_accounts_config_rejects_missing_accounts_key(tmp_path) -> None:
 
     with pytest.raises(ConfigError, match="accounts"):
         load_accounts_config(config_path)
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        (1, "top-level JSON object"),
+        ({"accounts": [{"name": ["bad"], "cookie": "SUB=1; SUBP=2"}]}, "name"),
+        ({"accounts": [{"name": "ok", "cookie": 123}]}, "cookie"),
+        ({"accounts": [{"name": "ok", "cookie": "SUB=1; SUBP=2", "enabled": "yes"}]}, "enabled"),
+    ],
+)
+def test_load_accounts_config_rejects_malformed_but_parseable_config(
+    tmp_path, payload, message
+) -> None:
+    config_path = tmp_path / "accounts.json"
+    config_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ConfigError, match=message):
+        load_accounts_config(config_path)
