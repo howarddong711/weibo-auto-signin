@@ -1,0 +1,9 @@
+{
+  "accounts": [
+    {
+      "name": "main-account",
+      "cookie": "SUB=...; SUBP=...; SCF=...; ALF=...",
+      "enabled": true
+    }
+  ]
+}

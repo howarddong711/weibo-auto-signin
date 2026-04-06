@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "weibo-auto-signin"
+version = "0.1.0"
+description = "Weibo super-topic auto sign-in CLI"
+readme = "README.md"
+requires-python = ">=3.13"
+authors = [{ name = "Open Source Contributors" }]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8.4.2"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/weibo_auto_signin"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
