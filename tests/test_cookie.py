@@ -1,6 +1,9 @@
+import pytest
+
 from weibo_auto_signin.cookie import (
-    missing_required_cookie_keys,
+    MissingCookieKeyError,
     parse_cookie_string,
+    require_cookie_keys,
 )
 
 
@@ -23,12 +26,23 @@ def test_parse_cookie_string_ignores_empty_and_malformed_segments() -> None:
     }
 
 
-def test_missing_required_cookie_keys_reports_absent_or_empty_values() -> None:
-    missing = missing_required_cookie_keys(
-        {
-            "SUB": "",
-            "SCF": "extra-value",
-        }
-    )
+def test_require_cookie_keys_returns_cookie_when_required_keys_exist() -> None:
+    parsed = {
+        "SUB": "abc123",
+        "SUBP": "def456",
+        "SCF": "extra-value",
+    }
 
-    assert missing == ("SUB", "SUBP")
+    assert require_cookie_keys(parsed) is parsed
+
+
+def test_require_cookie_keys_raises_with_missing_keys() -> None:
+    with pytest.raises(MissingCookieKeyError) as exc_info:
+        require_cookie_keys(
+            {
+                "SUB": "",
+                "SCF": "extra-value",
+            }
+        )
+
+    assert exc_info.value.missing_keys == ("SUB", "SUBP")

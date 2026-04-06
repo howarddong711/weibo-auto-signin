@@ -2,18 +2,27 @@ from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
+class AccountConfig:
+    name: str = ""
+    cookie: str = ""
+    enabled: bool = True
+
+
+@dataclass(frozen=True)
 class TopicCheckinResult:
     title: str
-    status: str
+    ok: bool
     message: str
-    experience_increment: int | None = None
-    rank: str | None = None
+    experience: int | None = None
+    rank: int | None = None
 
 
 @dataclass(frozen=True)
 class AccountCheckinResult:
-    display_name: str
-    status: str
-    uid: str | None = None
+    account_name: str
+    ok: bool
+    uid: str = ""
+    screen_name: str = ""
     cookie_invalid: bool = False
+    error_message: str = ""
     topic_results: list[TopicCheckinResult] = field(default_factory=list)

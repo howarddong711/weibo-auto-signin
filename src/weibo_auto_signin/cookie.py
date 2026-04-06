@@ -3,6 +3,12 @@ from collections.abc import Mapping
 REQUIRED_COOKIE_KEYS = ("SUB", "SUBP")
 
 
+class MissingCookieKeyError(ValueError):
+    def __init__(self, missing_keys: tuple[str, ...]) -> None:
+        self.missing_keys = missing_keys
+        super().__init__(f"Missing required cookie keys: {', '.join(missing_keys)}")
+
+
 def parse_cookie_string(raw_cookie: str) -> dict[str, str]:
     parsed: dict[str, str] = {}
 
@@ -21,5 +27,10 @@ def parse_cookie_string(raw_cookie: str) -> dict[str, str]:
     return parsed
 
 
-def missing_required_cookie_keys(cookie_map: Mapping[str, str]) -> tuple[str, ...]:
-    return tuple(key for key in REQUIRED_COOKIE_KEYS if not cookie_map.get(key))
+def require_cookie_keys(parsed_cookie: Mapping[str, str]) -> Mapping[str, str]:
+    missing_keys = tuple(
+        key for key in REQUIRED_COOKIE_KEYS if not parsed_cookie.get(key)
+    )
+    if missing_keys:
+        raise MissingCookieKeyError(missing_keys)
+    return parsed_cookie
