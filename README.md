@@ -191,6 +191,41 @@ SUB=...; SUBP=...; SCF=...; ALF=...
 
 配置完成后，每次签到结束都会发送一条纯文本汇总。
 
+#### 如何获取 PushPlus Token
+
+1. 打开 [PushPlus 官网](https://www.pushplus.plus/)。
+2. 使用微信登录。
+3. 进入一对一消息页面或个人中心。
+4. 找到你的 `用户 token`，也可以按需要新建 `消息 token`。
+5. 复制 token 内容。
+
+说明：
+
+- 当前 PushPlus 官方页面支持直接查看 `用户 token`
+- `用户 token` 和 `消息 token` 都可以用于发送消息
+- 为了方便管理不同项目，推荐你单独创建一个 `消息 token` 给这个仓库使用
+- PushPlus 官方目前要求完成实名认证后才能正常调用发送消息接口
+
+#### 如何在 GitHub Actions 里配置 PushPlus
+
+1. 打开仓库的 `Settings`
+2. 进入 `Secrets and variables` -> `Actions`
+3. 点击 `New repository secret`
+4. 名称填写 `PUSHPLUS_TOKEN`
+5. 值填写你刚刚复制的 token
+6. 保存后重新运行 `Weibo Check-in` workflow
+
+#### 如何在本地配置 PushPlus
+
+本地运行时可以直接设置环境变量：
+
+```bash
+export PUSHPLUS_TOKEN="你的 pushplus token"
+uv run python -m weibo_auto_signin.cli --config cookies.txt
+```
+
+如果配置正确，每次签到结束后都会收到一条微信通知。
+
 ### 方案二：SMTP 邮件通知
 
 如果你想通过邮箱接收通知，在仓库 Secrets 里新增：
