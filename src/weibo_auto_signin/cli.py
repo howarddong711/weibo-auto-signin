@@ -6,6 +6,7 @@ from weibo_auto_signin.checkin import run_accounts_checkin
 from weibo_auto_signin.config import load_accounts_config
 from weibo_auto_signin.logging import configure_logger
 from weibo_auto_signin.models import AccountCheckinResult
+from weibo_auto_signin.notify import send_notifications
 
 
 def build_summary_lines(results: list[AccountCheckinResult]) -> list[str]:
@@ -70,6 +71,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         success_count,
         len(results) - success_count,
     )
+    send_notifications(results, logger=logger)
     return 0 if success_count else 1
 
 

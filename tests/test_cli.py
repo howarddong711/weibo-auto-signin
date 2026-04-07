@@ -15,6 +15,32 @@ from weibo_auto_signin.logging import configure_logger
 from weibo_auto_signin.models import AccountCheckinResult, TopicCheckinResult
 
 
+class FakeLogger:
+    def __init__(self) -> None:
+        self.infos: list[str] = []
+        self.warnings: list[str] = []
+        self.errors: list[str] = []
+
+    def info(self, message: str, *args) -> None:
+        self.infos.append(message % args if args else message)
+
+    def warning(self, message: str, *args) -> None:
+        self.warnings.append(message % args if args else message)
+
+    def error(self, message: str, *args) -> None:
+        self.errors.append(message % args if args else message)
+
+
+class FalseNotifier:
+    def send(self, title: str, body: str) -> bool:
+        return False
+
+
+class RaisingNotifier:
+    def send(self, title: str, body: str) -> bool:
+        raise RuntimeError("pushplus boom")
+
+
 def test_build_summary_lines_includes_account_and_topic_details() -> None:
     result = AccountCheckinResult(
         account_name="main",
@@ -166,3 +192,32 @@ def test_configure_logger_closes_replaced_handlers_and_disables_propagation(tmp_
             logger.removeHandler(handler)
             handler.close()
         logger.propagate = True
+
+
+@pytest.mark.parametrize(
+    ("notifier", "expected_warning"),
+    [
+        (FalseNotifier(), "Notification failed via pushplus"),
+        (RaisingNotifier(), "Notification error via pushplus: pushplus boom"),
+    ],
+)
+def test_main_keeps_success_result_when_notification_send_fails(
+    monkeypatch, notifier, expected_warning
+) -> None:
+    logger = FakeLogger()
+
+    monkeypatch.setattr(cli, "configure_logger", lambda _path: logger)
+    monkeypatch.setattr(cli, "load_accounts_config", lambda _path: ["account"])
+    monkeypatch.setattr(
+        cli,
+        "run_accounts_checkin",
+        lambda _accounts: [AccountCheckinResult(account_name="main", ok=True)],
+    )
+    monkeypatch.setenv("PUSHPLUS_TOKEN", "token")
+    monkeypatch.setattr("weibo_auto_signin.notify.build_pushplus_notifier", lambda: notifier)
+
+    result = cli.main(["--config", "cookies.txt"])
+
+    assert result == 0
+    assert "Completed run: 1 success, 0 failed" in logger.infos
+    assert expected_warning in logger.warnings
