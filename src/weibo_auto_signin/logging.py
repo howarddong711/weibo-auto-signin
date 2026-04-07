@@ -8,7 +8,11 @@ def configure_logger(log_dir: Path) -> logging.Logger:
 
     logger = logging.getLogger("weibo-auto-signin")
     logger.setLevel(logging.INFO)
-    logger.handlers.clear()
+    logger.propagate = False
+
+    for handler in tuple(logger.handlers):
+        logger.removeHandler(handler)
+        handler.close()
 
     formatter = logging.Formatter(
         "%(asctime)s | %(message)s",
