@@ -1,4 +1,4 @@
-from weibo_auto_signin.checkin import run_accounts_checkin
+from weibo_auto_signin.checkin import run_account_checkin, run_accounts_checkin
 from weibo_auto_signin.client import Topic, WeiboClientError
 from weibo_auto_signin.models import AccountConfig, TopicCheckinResult
 
@@ -27,6 +27,9 @@ class FakeClient:
         return self.scenario["topics"]
 
     def checkin_topic(self, topic):
+        events = self.scenario.get("events")
+        if events is not None:
+            events.append(("checkin", topic.title))
         outcome = self.scenario["topic_outcomes"][topic.title]
         if isinstance(outcome, Exception):
             raise outcome
@@ -176,6 +179,8 @@ def test_run_accounts_checkin_continues_after_topic_failure() -> None:
     results = run_accounts_checkin(
         [AccountConfig(name="good-account", cookie="SUB=good; SUBP=goodp")],
         client_factory=client_factory,
+        topic_delay=lambda: 0.0,
+        sleep=lambda _seconds: None,
     )
 
     assert len(results) == 1
@@ -195,4 +200,45 @@ def test_run_accounts_checkin_continues_after_topic_failure() -> None:
             message="经验值+4",
             experience=4,
         ),
+    ]
+
+
+def test_run_account_checkin_delays_between_topic_checkins() -> None:
+    events = []
+    scenarios = {
+        "good": {
+            "uid": "10005",
+            "screen_name": "delay-user",
+            "topics": [
+                Topic(title="Topic A", topic_id="a"),
+                Topic(title="Topic B", topic_id="b"),
+                Topic(title="Topic C", topic_id="c"),
+            ],
+            "topic_outcomes": {
+                "Topic A": TopicCheckinResult(title="Topic A", ok=True, message="ok"),
+                "Topic B": TopicCheckinResult(title="Topic B", ok=True, message="ok"),
+                "Topic C": TopicCheckinResult(title="Topic C", ok=True, message="ok"),
+            },
+            "events": events,
+        }
+    }
+    delays = iter([0.12, 0.34])
+
+    def client_factory(parsed_cookie):
+        return FakeClient(parsed_cookie, scenarios[parsed_cookie["SUB"]])
+
+    result = run_account_checkin(
+        AccountConfig(name="good-account", cookie="SUB=good; SUBP=goodp"),
+        client_factory=client_factory,
+        topic_delay=lambda: next(delays),
+        sleep=lambda seconds: events.append(("sleep", seconds)),
+    )
+
+    assert result.ok is True
+    assert events == [
+        ("checkin", "Topic A"),
+        ("sleep", 0.12),
+        ("checkin", "Topic B"),
+        ("sleep", 0.34),
+        ("checkin", "Topic C"),
     ]

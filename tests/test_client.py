@@ -88,6 +88,40 @@ class InvalidJsonSession(FakeSession):
         return super().get(url, params=params, headers=headers)
 
 
+class PaginatedTopicsSession(FakeSession):
+    def get(self, url, params=None, headers=None):
+        self.calls.append((url, params, headers))
+        if url == "https://weibo.com/ajax/profile/topicContent":
+            page = params["page"]
+            topics = {
+                1: [{"title": "Topic A", "oid": "chaohua:100808a"}],
+                2: [{"title": "Topic B", "oid": "chaohua:100808b"}],
+            }
+            return FakeResponse(
+                payload={
+                    "ok": 1,
+                    "data": {
+                        "max_page": 2,
+                        "list": topics[page],
+                    },
+                }
+            )
+        return super().get(url, params=params, headers=headers)
+
+
+class RanklessSuccessSession(FakeSession):
+    def get(self, url, params=None, headers=None):
+        self.calls.append((url, params, headers))
+        if url == "https://weibo.com/p/aj/general/button":
+            return FakeResponse(
+                payload={
+                    "code": "100000",
+                    "data": {"tipMessage": "今日签到，经验值+4"},
+                }
+            )
+        return super().get(url, params=params, headers=headers)
+
+
 def test_bootstrap_session_sets_uid_and_xsrf_token() -> None:
     session = FakeSession()
     client = WeiboClient({"SUB": "1", "SUBP": "2"}, session=session)
@@ -110,6 +144,37 @@ def test_fetch_followed_topics_returns_topic_objects() -> None:
     topics = client.fetch_followed_topics()
 
     assert topics == [Topic(title="Example", topic_id="100808abc")]
+
+
+def test_fetch_followed_topics_returns_all_pages() -> None:
+    session = PaginatedTopicsSession()
+    client = WeiboClient({"SUB": "1", "SUBP": "2"}, session=session)
+    client.user_uid = "12345"
+
+    topics = client.fetch_followed_topics()
+
+    assert topics == [
+        Topic(title="Topic A", topic_id="100808a"),
+        Topic(title="Topic B", topic_id="100808b"),
+    ]
+    topic_pages = [
+        params["page"]
+        for url, params, _headers in session.calls
+        if url == "https://weibo.com/ajax/profile/topicContent"
+    ]
+    assert topic_pages == [1, 2]
+
+
+def test_checkin_topic_accepts_success_without_rank() -> None:
+    client = WeiboClient({"SUB": "1", "SUBP": "2"}, session=RanklessSuccessSession())
+
+    result = client.checkin_topic(Topic(title="Topic A", topic_id="100808a"))
+
+    assert result.ok is True
+    assert result.title == "Topic A"
+    assert result.message == "今日签到，经验值+4"
+    assert result.experience == 4
+    assert result.rank is None
 
 
 def test_bootstrap_session_wraps_missing_xsrf_cookie() -> None:

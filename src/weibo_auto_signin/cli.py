@@ -14,22 +14,37 @@ def build_summary_lines(results: list[AccountCheckinResult]) -> list[str]:
         if result.cookie_invalid:
             lines.append(f"[COOKIE INVALID] {result.account_name}: {result.error_message}")
             continue
+        label = _account_label(result)
         if not result.ok:
-            lines.append(f"[FAILED] {result.account_name}: {result.error_message}")
+            if result.topic_results:
+                lines.append(f"[FAILED] {label}")
+                _append_topic_lines(lines, result)
+            else:
+                lines.append(f"[FAILED] {label}: {result.error_message}")
             continue
 
-        label = result.account_name
-        if result.screen_name:
-            label = f"{label} ({result.screen_name})"
         lines.append(f"[OK] {label}")
 
-        for topic in result.topic_results:
-            if topic.experience is not None:
-                rank = f" rank {topic.rank}" if topic.rank is not None else ""
-                lines.append(f"  - {topic.title}: +{topic.experience} exp{rank}")
-            else:
-                lines.append(f"  - {topic.title}: {topic.message}")
+        _append_topic_lines(lines, result)
     return lines
+
+
+def _account_label(result: AccountCheckinResult) -> str:
+    label = result.account_name
+    if result.screen_name:
+        label = f"{label} ({result.screen_name})"
+    return label
+
+
+def _append_topic_lines(
+    lines: list[str], result: AccountCheckinResult
+) -> None:
+    for topic in result.topic_results:
+        if topic.experience is not None:
+            rank = f" rank {topic.rank}" if topic.rank is not None else ""
+            lines.append(f"  - {topic.title}: +{topic.experience} exp{rank}")
+        else:
+            lines.append(f"  - {topic.title}: {topic.message}")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -39,7 +54,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     logger = configure_logger(Path("logs"))
-    accounts = load_accounts_config(args.config)
+    try:
+        accounts = load_accounts_config(args.config)
+    except (OSError, ValueError) as exc:
+        logger.error("Failed to load config %s: %s", args.config, exc)
+        return 1
     if args.account:
         accounts = [account for account in accounts if account.name == args.account]
 

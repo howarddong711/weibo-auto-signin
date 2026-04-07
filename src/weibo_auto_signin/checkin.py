@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import random
+import time
 from collections.abc import Callable, Sequence
 from typing import Protocol
 
@@ -16,6 +18,10 @@ from weibo_auto_signin.models import (
 )
 
 
+TopicDelay = Callable[[], float]
+Sleeper = Callable[[float], None]
+
+
 class CheckinClient(Protocol):
     def bootstrap_session(self) -> str: ...
 
@@ -26,13 +32,24 @@ class CheckinClient(Protocol):
     def checkin_topic(self, topic: Topic) -> TopicCheckinResult: ...
 
 
+def _random_topic_delay() -> float:
+    return random.uniform(1.0, 3.0)
+
+
 def run_accounts_checkin(
     accounts: Sequence[AccountConfig],
     *,
     client_factory: Callable[[dict[str, str]], CheckinClient] = WeiboClient,
+    topic_delay: TopicDelay = _random_topic_delay,
+    sleep: Sleeper = time.sleep,
 ) -> list[AccountCheckinResult]:
     return [
-        run_account_checkin(account, client_factory=client_factory)
+        run_account_checkin(
+            account,
+            client_factory=client_factory,
+            topic_delay=topic_delay,
+            sleep=sleep,
+        )
         for account in accounts
     ]
 
@@ -41,6 +58,8 @@ def run_account_checkin(
     account: AccountConfig,
     *,
     client_factory: Callable[[dict[str, str]], CheckinClient] = WeiboClient,
+    topic_delay: TopicDelay = _random_topic_delay,
+    sleep: Sleeper = time.sleep,
 ) -> AccountCheckinResult:
     try:
         parsed_cookie = _parse_valid_cookie(account.cookie)
@@ -70,7 +89,12 @@ def run_account_checkin(
             error_message=_error_message(exc),
         )
 
-    topic_results = [_checkin_topic(client, topic) for topic in topics]
+    topic_results = _checkin_topics(
+        client,
+        topics,
+        topic_delay=topic_delay,
+        sleep=sleep,
+    )
     return AccountCheckinResult(
         account_name=account.name,
         ok=all(result.ok for result in topic_results),
@@ -84,6 +108,21 @@ def _parse_valid_cookie(raw_cookie: str) -> dict[str, str]:
     parsed_cookie = parse_cookie_string(raw_cookie)
     validated_cookie = require_cookie_keys(parsed_cookie)
     return dict(validated_cookie)
+
+
+def _checkin_topics(
+    client: CheckinClient,
+    topics: Sequence[Topic],
+    *,
+    topic_delay: TopicDelay,
+    sleep: Sleeper,
+) -> list[TopicCheckinResult]:
+    topic_results: list[TopicCheckinResult] = []
+    for index, topic in enumerate(topics):
+        if index > 0:
+            sleep(max(0.0, topic_delay()))
+        topic_results.append(_checkin_topic(client, topic))
+    return topic_results
 
 
 def _checkin_topic(client: CheckinClient, topic: Topic) -> TopicCheckinResult:

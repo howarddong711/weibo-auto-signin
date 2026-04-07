@@ -82,21 +82,29 @@ class WeiboClient:
             raise self._invalid_payload("fetch user info") from exc
 
     def fetch_followed_topics(self) -> list[Topic]:
-        payload = self._get_json(
-            "fetch followed topics",
-            "https://weibo.com/ajax/profile/topicContent",
-            params={"tabid": "231093_-_chaohua", "page": 1},
-            headers=self._with_referer(
-                f"https://weibo.com/u/page/follow/{self.user_uid}/231093_-_chaohua"
-            ),
-        )
-        try:
-            return [
-                Topic(title=item["title"], topic_id=item["oid"].split(":", 1)[1])
-                for item in payload["data"]["list"]
-            ]
-        except (KeyError, IndexError, TypeError) as exc:
-            raise self._invalid_payload("fetch followed topics") from exc
+        topics: list[Topic] = []
+        page = 1
+        max_page = 1
+        while page <= max_page:
+            payload = self._get_json(
+                "fetch followed topics",
+                "https://weibo.com/ajax/profile/topicContent",
+                params={"tabid": "231093_-_chaohua", "page": page},
+                headers=self._with_referer(
+                    f"https://weibo.com/u/page/follow/{self.user_uid}/231093_-_chaohua"
+                ),
+            )
+            try:
+                data = payload["data"]
+                max_page = int(data.get("max_page", 1))
+                topics.extend(
+                    Topic(title=item["title"], topic_id=item["oid"].split(":", 1)[1])
+                    for item in data["list"]
+                )
+            except (AttributeError, KeyError, IndexError, TypeError, ValueError) as exc:
+                raise self._invalid_payload("fetch followed topics") from exc
+            page += 1
+        return topics
 
     def checkin_topic(self, topic: Topic) -> TopicCheckinResult:
         payload = self._get_json(
@@ -116,9 +124,10 @@ class WeiboClient:
         )
         if str(payload.get("code")) == "100000":
             try:
-                message = payload["data"]["tipMessage"]
+                data = payload["data"]
+                message = data["tipMessage"]
                 exp_match = re.search(r"(\d+)", message)
-                rank_match = re.search(r"(\d+)", payload["data"]["alert_title"])
+                rank_match = re.search(r"(\d+)", data.get("alert_title", ""))
                 return TopicCheckinResult(
                     title=topic.title,
                     ok=True,
@@ -126,7 +135,7 @@ class WeiboClient:
                     experience=int(exp_match.group(1)) if exp_match else None,
                     rank=int(rank_match.group(1)) if rank_match else None,
                 )
-            except (KeyError, TypeError) as exc:
+            except (AttributeError, KeyError, TypeError) as exc:
                 raise self._invalid_payload("check in topic") from exc
         if str(payload.get("code")) == "382004":
             try:
