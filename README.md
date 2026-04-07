@@ -173,8 +173,8 @@ SUB=...; SUBP=...; SCF=...; ALF=...
 
 当前仓库默认的定时任务是：
 
-- `22:30 UTC`
-- 对应中国时间 `06:30`
+- `22:00 UTC`
+- 对应中国时间 `06:00`
 
 如果你想改执行时间，可以编辑 [checkin.yml](.github/workflows/checkin.yml) 里的 `cron` 表达式。
 
