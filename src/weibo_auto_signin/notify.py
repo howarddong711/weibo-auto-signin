@@ -94,8 +94,9 @@ def build_email_notifier() -> EmailNotifier | None:
     )
 
 
-def _build_enabled_channels(logger=None) -> list[tuple[str, Notifier]]:
+def _build_enabled_channels(logger=None) -> tuple[list[tuple[str, Notifier]], bool]:
     channels: list[tuple[str, Notifier | None]] = []
+    has_invalid_config = False
     for name, builder in (
         ("pushplus", build_pushplus_notifier),
         ("email", build_email_notifier),
@@ -103,9 +104,11 @@ def _build_enabled_channels(logger=None) -> list[tuple[str, Notifier]]:
         try:
             channels.append((name, builder()))
         except Exception as exc:
+            has_invalid_config = True
             if logger:
                 logger.warning("Notification config invalid via %s: %s", name, exc)
-    return [(name, notifier) for name, notifier in channels if notifier is not None]
+    enabled = [(name, notifier) for name, notifier in channels if notifier is not None]
+    return enabled, has_invalid_config
 
 
 def send_notifications(results: list[AccountCheckinResult], logger=None) -> None:
@@ -115,11 +118,14 @@ def send_notifications(results: list[AccountCheckinResult], logger=None) -> None
     )
     title = build_notification_title(prefix=prefix)
     body = build_notification_message(results)
-    enabled = _build_enabled_channels(logger=logger)
+    enabled, has_invalid_config = _build_enabled_channels(logger=logger)
 
     if not enabled:
         if logger:
-            logger.info("Notification disabled")
+            if has_invalid_config:
+                logger.warning("Notification configuration invalid; no channels enabled")
+            else:
+                logger.info("Notification disabled")
         return
 
     if logger:

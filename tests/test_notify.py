@@ -132,3 +132,5 @@ def test_send_notifications_warns_for_invalid_smtp_config(monkeypatch) -> None:
     )
 
     assert "Notification config invalid via email: SMTP_PORT must be an integer" in logger.warnings
+    assert "Notification configuration invalid; no channels enabled" in logger.warnings
+    assert "Notification disabled" not in logger.infos
