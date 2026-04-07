@@ -15,7 +15,8 @@ class EmailNotifier:
         from_addr: str,
         to_addrs: list[str],
         use_tls: bool = True,
-        smtp_factory: Callable[[str, int], smtplib.SMTP] = smtplib.SMTP,
+        smtp_factory: Callable[..., smtplib.SMTP] = smtplib.SMTP,
+        timeout: float = 10.0,
     ) -> None:
         self.host = host
         self.port = port
@@ -25,6 +26,7 @@ class EmailNotifier:
         self.to_addrs = to_addrs
         self.use_tls = use_tls
         self.smtp_factory = smtp_factory
+        self.timeout = timeout
 
     def send(self, title: str, body: str) -> bool:
         message = EmailMessage()
@@ -33,7 +35,7 @@ class EmailNotifier:
         message["To"] = ", ".join(self.to_addrs)
         message.set_content(body)
 
-        with self.smtp_factory(self.host, self.port) as smtp:
+        with self.smtp_factory(self.host, self.port, timeout=self.timeout) as smtp:
             if self.use_tls:
                 smtp.starttls()
             smtp.login(self.username, self.password)
