@@ -11,6 +11,9 @@ requires-python = ">=3.13"
 authors = [{ name = "Open Source Contributors" }]
 dependencies = ["requests>=2.32.0"]
 
+[project.scripts]
+weibo-auto-signin = "weibo_auto_signin.cli:main"
+
 [project.optional-dependencies]
 dev = ["pytest>=8.4.2"]
 

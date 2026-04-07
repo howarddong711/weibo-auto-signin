@@ -1,4 +1,8 @@
 import logging
+import subprocess
+import sys
+import tomllib
+from pathlib import Path
 
 from weibo_auto_signin.cli import build_summary_lines
 from weibo_auto_signin.logging import configure_logger
@@ -38,6 +42,28 @@ def test_build_summary_lines_marks_cookie_invalid_accounts() -> None:
     lines = build_summary_lines([result])
 
     assert any("cookie invalid" in line.lower() for line in lines)
+
+
+def test_console_entrypoint_and_help_path_smoke() -> None:
+    project = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+
+    assert project["project"]["scripts"]["weibo-auto-signin"] == "weibo_auto_signin.cli:main"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from weibo_auto_signin.cli import main; raise SystemExit(main(['--help']))",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Weibo super-topic auto check-in" in result.stdout
+    assert "--config" in result.stdout
+    assert "--account" in result.stdout
 
 
 def test_configure_logger_closes_replaced_handlers_and_disables_propagation(tmp_path) -> None:
