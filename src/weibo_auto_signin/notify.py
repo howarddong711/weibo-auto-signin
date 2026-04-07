@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import os
-from datetime import date
+from datetime import datetime
 from typing import Protocol
+from zoneinfo import ZoneInfo
 
 from weibo_auto_signin.models import AccountCheckinResult
 from weibo_auto_signin.notifiers.email import EmailNotifier
 from weibo_auto_signin.notifiers.pushplus import PushplusNotifier
+
+
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 
 class Notifier(Protocol):
@@ -14,7 +18,7 @@ class Notifier(Protocol):
 
 
 def build_notification_title(prefix: str = "微博超话签到汇总") -> str:
-    return f"{prefix} {date.today().isoformat()}"
+    return f"{prefix} {datetime.now(SHANGHAI_TZ).date().isoformat()}"
 
 
 def build_notification_message(results: list[AccountCheckinResult]) -> str:

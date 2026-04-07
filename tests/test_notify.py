@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from weibo_auto_signin.models import AccountCheckinResult, TopicCheckinResult
 from weibo_auto_signin.notify import (
     build_notification_message,
@@ -15,6 +17,14 @@ class FakeNotifier:
         return True
 
 
+class FakeRaisingNotifier:
+    def __init__(self, message: str) -> None:
+        self.message = message
+
+    def send(self, title: str, body: str) -> bool:
+        raise RuntimeError(self.message)
+
+
 class FakeLogger:
     def __init__(self) -> None:
         self.infos: list[str] = []
@@ -30,6 +40,19 @@ class FakeLogger:
 def test_build_notification_title_uses_default_prefix() -> None:
     title = build_notification_title()
     assert title.startswith("微博超话签到汇总 ")
+
+
+def test_build_notification_title_uses_asia_shanghai_date(monkeypatch) -> None:
+    class FakeDateTime:
+        @staticmethod
+        def now(tz):
+            return datetime(2026, 4, 7, 16, 30, tzinfo=UTC).astimezone(tz)
+
+    monkeypatch.setattr("weibo_auto_signin.notify.datetime", FakeDateTime)
+
+    title = build_notification_title(prefix="prefix")
+
+    assert title == "prefix 2026-04-08"
 
 
 def test_build_notification_message_includes_counts_and_account_blocks() -> None:
@@ -134,3 +157,29 @@ def test_send_notifications_warns_for_invalid_smtp_config(monkeypatch) -> None:
     assert "Notification config invalid via email: SMTP_PORT must be an integer" in logger.warnings
     assert "Notification configuration invalid; no channels enabled" in logger.warnings
     assert "Notification disabled" not in logger.infos
+
+
+def test_send_notifications_continues_when_one_notifier_raises(monkeypatch) -> None:
+    pushplus = FakeRaisingNotifier("pushplus boom")
+    email = FakeNotifier()
+    logger = FakeLogger()
+
+    monkeypatch.setenv("PUSHPLUS_TOKEN", "token")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USERNAME", "user")
+    monkeypatch.setenv("SMTP_PASSWORD", "pass")
+    monkeypatch.setenv("SMTP_FROM", "from@example.com")
+    monkeypatch.setenv("SMTP_TO", "to@example.com")
+    monkeypatch.setattr(
+        "weibo_auto_signin.notify.build_pushplus_notifier", lambda: pushplus
+    )
+    monkeypatch.setattr("weibo_auto_signin.notify.build_email_notifier", lambda: email)
+
+    send_notifications(
+        [AccountCheckinResult(account_name="account-1", ok=True)],
+        logger=logger,
+    )
+
+    assert "Notification error via pushplus: pushplus boom" in logger.warnings
+    assert len(email.calls) == 1
