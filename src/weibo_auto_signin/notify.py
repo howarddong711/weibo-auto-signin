@@ -57,33 +57,38 @@ def build_pushplus_notifier() -> PushplusNotifier | None:
 
 
 def build_email_notifier() -> EmailNotifier | None:
-    required = {
-        "host": os.getenv("SMTP_HOST", "").strip(),
-        "port": os.getenv("SMTP_PORT", "").strip(),
-        "username": os.getenv("SMTP_USERNAME", "").strip(),
-        "password": os.getenv("SMTP_PASSWORD", "").strip(),
-        "from_addr": os.getenv("SMTP_FROM", "").strip(),
-        "to_raw": os.getenv("SMTP_TO", "").strip(),
+    raw_config = {
+        "SMTP_HOST": os.getenv("SMTP_HOST", "").strip(),
+        "SMTP_PORT": os.getenv("SMTP_PORT", "").strip(),
+        "SMTP_USERNAME": os.getenv("SMTP_USERNAME", "").strip(),
+        "SMTP_PASSWORD": os.getenv("SMTP_PASSWORD", "").strip(),
+        "SMTP_FROM": os.getenv("SMTP_FROM", "").strip(),
+        "SMTP_TO": os.getenv("SMTP_TO", "").strip(),
     }
-    if not all(required.values()):
+
+    if not any(raw_config.values()):
         return None
+
+    missing = [name for name, value in raw_config.items() if not value]
+    if missing:
+        raise ValueError(f"missing {', '.join(missing)}")
 
     try:
-        port = int(required["port"])
-    except ValueError:
-        return None
+        port = int(raw_config["SMTP_PORT"])
+    except ValueError as exc:
+        raise ValueError("SMTP_PORT must be an integer") from exc
 
-    to_addrs = [item.strip() for item in required["to_raw"].split(",") if item.strip()]
+    to_addrs = [item.strip() for item in raw_config["SMTP_TO"].split(",") if item.strip()]
     if not to_addrs:
-        return None
+        raise ValueError("SMTP_TO must include at least one recipient")
 
     use_tls = os.getenv("SMTP_USE_TLS", "true").strip().lower() != "false"
     return EmailNotifier(
-        host=required["host"],
+        host=raw_config["SMTP_HOST"],
         port=port,
-        username=required["username"],
-        password=required["password"],
-        from_addr=required["from_addr"],
+        username=raw_config["SMTP_USERNAME"],
+        password=raw_config["SMTP_PASSWORD"],
+        from_addr=raw_config["SMTP_FROM"],
         to_addrs=to_addrs,
         use_tls=use_tls,
     )
@@ -99,7 +104,7 @@ def _build_enabled_channels(logger=None) -> list[tuple[str, Notifier]]:
             channels.append((name, builder()))
         except Exception as exc:
             if logger:
-                logger.warning("Notification config error via %s: %s", name, exc)
+                logger.warning("Notification config invalid via %s: %s", name, exc)
     return [(name, notifier) for name, notifier in channels if notifier is not None]
 
 
@@ -116,6 +121,12 @@ def send_notifications(results: list[AccountCheckinResult], logger=None) -> None
         if logger:
             logger.info("Notification disabled")
         return
+
+    if logger:
+        logger.info(
+            "Notification channels enabled: %s",
+            ", ".join(name for name, _ in enabled),
+        )
 
     for name, notifier in enabled:
         try:

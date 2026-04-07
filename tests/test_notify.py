@@ -15,6 +15,18 @@ class FakeNotifier:
         return True
 
 
+class FakeLogger:
+    def __init__(self) -> None:
+        self.infos: list[str] = []
+        self.warnings: list[str] = []
+
+    def info(self, message: str, *args) -> None:
+        self.infos.append(message % args if args else message)
+
+    def warning(self, message: str, *args) -> None:
+        self.warnings.append(message % args if args else message)
+
+
 def test_build_notification_title_uses_default_prefix() -> None:
     title = build_notification_title()
     assert title.startswith("微博超话签到汇总 ")
@@ -77,3 +89,46 @@ def test_send_notifications_uses_all_enabled_channels(monkeypatch) -> None:
 
     assert len(pushplus.calls) == 1
     assert len(email.calls) == 1
+
+
+def test_send_notifications_logs_active_channels(monkeypatch) -> None:
+    pushplus = FakeNotifier()
+    email = FakeNotifier()
+    logger = FakeLogger()
+
+    monkeypatch.setenv("PUSHPLUS_TOKEN", "token")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USERNAME", "user")
+    monkeypatch.setenv("SMTP_PASSWORD", "pass")
+    monkeypatch.setenv("SMTP_FROM", "from@example.com")
+    monkeypatch.setenv("SMTP_TO", "to@example.com")
+    monkeypatch.setattr(
+        "weibo_auto_signin.notify.build_pushplus_notifier", lambda: pushplus
+    )
+    monkeypatch.setattr("weibo_auto_signin.notify.build_email_notifier", lambda: email)
+
+    send_notifications(
+        [AccountCheckinResult(account_name="account-1", ok=True)],
+        logger=logger,
+    )
+
+    assert "Notification channels enabled: pushplus, email" in logger.infos
+
+
+def test_send_notifications_warns_for_invalid_smtp_config(monkeypatch) -> None:
+    logger = FakeLogger()
+
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "not-a-port")
+    monkeypatch.setenv("SMTP_USERNAME", "user")
+    monkeypatch.setenv("SMTP_PASSWORD", "pass")
+    monkeypatch.setenv("SMTP_FROM", "from@example.com")
+    monkeypatch.setenv("SMTP_TO", "to@example.com")
+
+    send_notifications(
+        [AccountCheckinResult(account_name="account-1", ok=True)],
+        logger=logger,
+    )
+
+    assert "Notification config invalid via email: SMTP_PORT must be an integer" in logger.warnings
