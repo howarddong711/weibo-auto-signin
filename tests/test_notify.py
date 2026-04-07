@@ -1,5 +1,18 @@
 from weibo_auto_signin.models import AccountCheckinResult, TopicCheckinResult
-from weibo_auto_signin.notify import build_notification_message, build_notification_title
+from weibo_auto_signin.notify import (
+    build_notification_message,
+    build_notification_title,
+    send_notifications,
+)
+
+
+class FakeNotifier:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str]] = []
+
+    def send(self, title: str, body: str) -> bool:
+        self.calls.append((title, body))
+        return True
 
 
 def test_build_notification_title_uses_default_prefix() -> None:
@@ -42,3 +55,25 @@ def test_build_notification_message_includes_counts_and_account_blocks() -> None
     assert "失败: Failed to bootstrap session: HTTP request failed" in body
     assert "[account-3]" in body
     assert "Cookie 无效: Missing required cookie keys: SUBP" in body
+
+
+def test_send_notifications_uses_all_enabled_channels(monkeypatch) -> None:
+    pushplus = FakeNotifier()
+    email = FakeNotifier()
+
+    monkeypatch.setenv("PUSHPLUS_TOKEN", "token")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USERNAME", "user")
+    monkeypatch.setenv("SMTP_PASSWORD", "pass")
+    monkeypatch.setenv("SMTP_FROM", "from@example.com")
+    monkeypatch.setenv("SMTP_TO", "to@example.com")
+    monkeypatch.setattr(
+        "weibo_auto_signin.notify.build_pushplus_notifier", lambda: pushplus
+    )
+    monkeypatch.setattr("weibo_auto_signin.notify.build_email_notifier", lambda: email)
+
+    send_notifications([AccountCheckinResult(account_name="account-1", ok=True)])
+
+    assert len(pushplus.calls) == 1
+    assert len(email.calls) == 1

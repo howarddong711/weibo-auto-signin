@@ -38,6 +38,14 @@ cp cookies.example.txt cookies.txt
 uv run python -m weibo_auto_signin.cli --config cookies.txt
 ```
 
+Optional notification environment variables:
+
+- `PUSHPLUS_TOKEN` enables PushPlus delivery.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, and
+  `SMTP_TO` enable SMTP email delivery.
+- `SMTP_USE_TLS=false` disables STARTTLS if your SMTP server does not use it.
+- `NOTIFY_TITLE_PREFIX` overrides the default notification title prefix.
+
 ## Config Format
 
 `cookies.txt` is a plain-text file with one full cookie string per line:
@@ -58,9 +66,14 @@ runs.
 1. Fork the repository.
 2. Open the fork's `Settings` > `Secrets and variables` > `Actions`.
 3. Add a repository secret named `WEIBO_COOKIES`.
-4. Paste one or more full cookie strings as the secret value, one per line.
-5. Enable GitHub Actions on the fork if GitHub prompts you to do so.
-6. Run the `Weibo Check-in` workflow manually from the `Actions` tab, or rely on
+4. Optional: add `PUSHPLUS_TOKEN` and/or SMTP-related repository secrets if you
+   want run summaries delivered outside the Actions log.
+5. For SMTP, add `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`,
+   `SMTP_FROM`, and `SMTP_TO`. Add `SMTP_USE_TLS` only if you need to disable
+   STARTTLS.
+6. Paste one or more full cookie strings as the secret value, one per line.
+7. Enable GitHub Actions on the fork if GitHub prompts you to do so.
+8. Run the `Weibo Check-in` workflow manually from the `Actions` tab, or rely on
    the schedule.
 
 Example secret value:
