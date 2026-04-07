@@ -1,6 +1,16 @@
 # weibo-auto-signin
 
-Minimal scaffold for the Weibo auto sign-in MVP.
+Minimal Weibo super-topic auto check-in CLI.
+
+The tool reads one or more account cookies from JSON config, checks each enabled
+account's followed super-topics, and attempts daily check-in for those topics.
+It is intended for local runs and GitHub Actions scheduled runs.
+
+## What This Does Not Do
+
+- It does not acquire Weibo cookies for you.
+- It does not bypass cookie expiration, account risk controls, or platform changes.
+- It does not run live-network tests in the repository test suite.
 
 ## Development
 
@@ -9,3 +19,78 @@ This project targets Python 3.13 and is intended to be managed with `uv`.
 ```bash
 uv run pytest tests/test_smoke.py
 ```
+
+## Local Setup
+
+1. Install Python 3.13 and `uv`.
+2. Clone or fork the repository.
+3. Create a local config file from the example:
+
+```bash
+cp accounts.example.json accounts.json
+```
+
+4. Replace the placeholder cookie values with your own Weibo cookie values.
+5. Run the CLI:
+
+```bash
+uv run python -m weibo_auto_signin.cli --config accounts.json
+```
+
+To run only one named account from the config:
+
+```bash
+uv run python -m weibo_auto_signin.cli --config accounts.json --account main-account
+```
+
+## Config Format
+
+`accounts.json` must be a JSON object with a non-empty `accounts` array:
+
+```json
+{
+  "accounts": [
+    {
+      "name": "main-account",
+      "cookie": "SUB=...; SUBP=...; SCF=...; ALF=...",
+      "enabled": true
+    }
+  ]
+}
+```
+
+Fields:
+
+- `name`: Optional account label used in logs.
+- `cookie`: Required Weibo cookie string. Treat this as a secret.
+- `enabled`: Optional boolean. Disabled accounts are skipped.
+
+Do not commit real cookies. Keep real config in `accounts.json` locally or in a
+GitHub Actions repository secret.
+
+## GitHub Actions Setup
+
+The repository includes `.github/workflows/checkin.yml` for manual and scheduled
+runs.
+
+1. Fork the repository.
+2. Open the fork's `Settings` > `Secrets and variables` > `Actions`.
+3. Add a repository secret named `WEIBO_ACCOUNTS_JSON`.
+4. Paste the full JSON config payload as the secret value.
+5. Enable GitHub Actions on the fork if GitHub prompts you to do so.
+6. Run the `Weibo Check-in` workflow manually from the `Actions` tab, or rely on
+   the schedule.
+
+The bundled schedule runs at `22:30` UTC, which is `06:30` in China Standard
+Time. Edit the cron expression in `.github/workflows/checkin.yml` if another
+time is more appropriate.
+
+## Notes
+
+- Expired or incomplete cookies are reported as cookie-invalid account failures.
+- GitHub Actions logs include check-in summaries, but raw cookie values should
+  not be printed.
+- Weibo may change endpoints or anti-abuse behavior. If requests start failing,
+  rotate cookies first, then review recent platform changes.
+- Automated sign-in can carry account risk. Use a schedule and account setup you
+  are comfortable with.
