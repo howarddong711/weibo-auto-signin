@@ -66,7 +66,68 @@ SUB=...; SUBP=...; SCF=...; ALF=...
 - 一行代表一个微博账号
 - 空行会被自动忽略
 - 建议直接从浏览器复制完整 Cookie，不要手动拆字段
+- 程序当前强制要求 Cookie 中至少包含 `SUB` 和 `SUBP`
+- 其他字段可以一起保留，例如 `XSRF-TOKEN`、`SCF`、`ALF`、`WBPSESS`
 - 不要把真实 Cookie 提交到 Git 仓库
+
+像下面这种更完整的 Cookie，也可以直接使用：
+
+```text
+XSRF-TOKEN=...; SCF=...; SUB=...; SUBP=...; ALF=...; WBPSESS=...
+```
+
+## 如何获取 Cookie
+
+下面以 Chrome 和 Edge 为例，其他 Chromium 浏览器操作基本类似。
+
+### 方法一：从开发者工具的 Network 里复制
+
+这是最推荐的方式，复制到的内容通常最完整。
+
+1. 先在浏览器里登录微博。
+2. 打开 [weibo.com](https://weibo.com/) 并保持登录状态。
+3. 按 `F12` 打开开发者工具。
+4. 切换到 `Network` 面板。
+5. 刷新当前页面。
+6. 随便点开一个请求，在请求头里找到 `Cookie`。
+7. 复制整串 `Cookie` 值。
+
+注意：
+
+- 只复制 `Cookie:` 后面的内容，不要把 `Cookie:` 这个前缀也带进去
+- 复制后粘贴成一整行，不要换行
+- 你拿到的内容可能比示例多很多字段，这没关系，直接整串使用即可
+
+### 方法二：从 Application 里查看 Cookie
+
+如果你不习惯看请求头，也可以这样拿：
+
+1. 登录微博网页。
+2. 按 `F12` 打开开发者工具。
+3. 打开 `Application` 面板。
+4. 左侧找到 `Storage` -> `Cookies` -> `https://weibo.com`
+5. 找到对应的 Cookie 项。
+6. 自己拼接成 `key=value; key=value` 这种格式。
+
+这个方式也能用，但因为要手动拼接，不如方法一省事。
+
+### 写入本地文件
+
+把复制到的整串 Cookie 直接写到 `cookies.txt`，一行一个账号：
+
+```text
+XSRF-TOKEN=...; SCF=...; SUB=...; SUBP=...; ALF=...; WBPSESS=...
+XSRF-TOKEN=...; SCF=...; SUB=...; SUBP=...; ALF=...; WBPSESS=...
+```
+
+### 写入 GitHub Actions Secret
+
+如果你用 GitHub Actions，就把同样的内容填到 `WEIBO_COOKIES` 这个 Secret 里：
+
+- 单账号就填一行
+- 多账号就一行一个 Cookie
+- 不要额外加引号
+- 不要提交真实 Cookie 到仓库文件里
 
 ## GitHub Actions 配置
 
