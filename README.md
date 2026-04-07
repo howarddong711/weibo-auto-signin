@@ -1,98 +1,213 @@
 # weibo-auto-signin
 
-Minimal Weibo super-topic auto check-in CLI.
+一个尽量简单的微博超话自动签到工具，支持本地运行，也支持通过 GitHub Actions 定时执行。
 
-The tool reads one or more full Weibo cookie strings from a plain-text file,
-checks each account's followed super-topics, and attempts daily check-in for
-those topics.
-It is intended for local runs and GitHub Actions scheduled runs.
+项目默认思路只有一件事：你提供整串微博 Cookie，程序自动读取关注的超话并尝试完成当天签到。
 
-## What This Does Not Do
+English version: [docs/README.en.md](docs/README.en.md)
 
-- It does not acquire Weibo cookies for you.
-- It does not bypass cookie expiration, account risk controls, or platform changes.
-- It does not run live-network tests in the repository test suite.
+## 功能
 
-## Development
+- 支持一行一个 Cookie，多账号批量签到
+- 支持直接粘贴整串微博 Cookie
+- 支持本地命令行运行
+- 支持 GitHub Actions 手动触发和定时触发
+- 支持运行结束后发送汇总通知
+- 支持 `PushPlus` 和通用 `SMTP` 邮件通知
 
-This project targets Python 3.13 and is intended to be managed with `uv`.
+## 不做什么
+
+- 不负责帮你获取微博 Cookie
+- 不保证能绕过 Cookie 失效、平台风控或接口变更
+- 不在仓库测试里执行真实联网签到
+
+## 环境要求
+
+- Python `3.13`
+- `uv`
+
+## 本地使用
+
+1. 克隆仓库。
+2. 安装依赖。
+3. 复制示例配置文件。
+4. 把你自己的 Cookie 填进去。
+5. 执行签到命令。
+
+安装依赖：
 
 ```bash
-uv run pytest tests/test_smoke.py
+uv sync
 ```
 
-## Local Setup
-
-1. Install Python 3.13 and `uv`.
-2. Clone or fork the repository.
-3. Create a local config file from the example:
+复制示例配置：
 
 ```bash
 cp cookies.example.txt cookies.txt
 ```
 
-4. Replace the placeholder cookie values with your own Weibo cookie values.
-5. Run the CLI:
+运行命令：
 
 ```bash
 uv run python -m weibo_auto_signin.cli --config cookies.txt
 ```
 
-Optional notification environment variables:
+## Cookie 格式
 
-- `PUSHPLUS_TOKEN` enables PushPlus delivery.
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, and
-  `SMTP_TO` enable SMTP email delivery.
-- `SMTP_USE_TLS=false` disables STARTTLS if your SMTP server does not use it.
-- `NOTIFY_TITLE_PREFIX` overrides the default notification title prefix.
-
-## Config Format
-
-`cookies.txt` is a plain-text file with one full cookie string per line:
+`cookies.txt` 是纯文本文件，一行一个完整 Cookie：
 
 ```text
 SUB=...; SUBP=...; SCF=...; ALF=...
 SUB=...; SUBP=...; SCF=...; ALF=...
 ```
 
-Blank lines are ignored. Do not commit real cookies. Keep real values in
-`cookies.txt` locally or in a GitHub Actions repository secret.
+说明：
 
-## GitHub Actions Setup
+- 一行代表一个微博账号
+- 空行会被自动忽略
+- 建议直接从浏览器复制完整 Cookie，不要手动拆字段
+- 不要把真实 Cookie 提交到 Git 仓库
 
-The repository includes `.github/workflows/checkin.yml` for manual and scheduled
-runs.
+## GitHub Actions 配置
 
-1. Fork the repository.
-2. Open the fork's `Settings` > `Secrets and variables` > `Actions`.
-3. Add a repository secret named `WEIBO_COOKIES`.
-4. Optional: add `PUSHPLUS_TOKEN` and/or SMTP-related repository secrets if you
-   want run summaries delivered outside the Actions log.
-5. For SMTP, add `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`,
-   `SMTP_FROM`, and `SMTP_TO`. Add `SMTP_USE_TLS` only if you need to disable
-   STARTTLS.
-6. Paste one or more full cookie strings as the secret value, one per line.
-7. Enable GitHub Actions on the fork if GitHub prompts you to do so.
-8. Run the `Weibo Check-in` workflow manually from the `Actions` tab, or rely on
-   the schedule.
+仓库已经自带 workflow 文件 [checkin.yml](.github/workflows/checkin.yml)，你只需要配置 Secrets 就可以运行。
 
-Example secret value:
+### 第一步：Fork 或使用你自己的仓库
+
+如果你是直接使用自己的仓库，跳过这一步。  
+如果你是参考本项目，先 Fork 一份到自己的 GitHub 账号下。
+
+### 第二步：添加签到 Cookie
+
+打开仓库页面后，按下面路径进入：
+
+`Settings` -> `Secrets and variables` -> `Actions`
+
+点击 `New repository secret`，新增一个 Secret：
+
+- 名称：`WEIBO_COOKIES`
+- 内容：一行一个完整 Cookie
+
+示例：
 
 ```text
 SUB=...; SUBP=...; SCF=...; ALF=...
 SUB=...; SUBP=...; SCF=...; ALF=...
 ```
 
-The bundled schedule runs at `22:30` UTC, which is `06:30` in China Standard
-Time. Edit the cron expression in `.github/workflows/checkin.yml` if another
-time is more appropriate.
+如果你只有一个账号，就只填一行。
 
-## Notes
+### 第三步：手动触发 workflow
 
-- Expired or incomplete cookies are reported as cookie-invalid account failures.
-- GitHub Actions logs include check-in summaries, but raw cookie values should
-  not be printed.
-- Weibo may change endpoints or anti-abuse behavior. If requests start failing,
-  rotate cookies first, then review recent platform changes.
-- Automated sign-in can carry account risk. Use a schedule and account setup you
-  are comfortable with.
+打开仓库的 `Actions` 页面：
+
+1. 选择 `Weibo Check-in`
+2. 点击 `Run workflow`
+3. 选择分支 `main`
+4. 点击绿色按钮开始执行
+
+执行结束后，可以在 Actions 日志里查看签到结果。
+
+### 第四步：等待定时执行
+
+当前仓库默认的定时任务是：
+
+- `22:30 UTC`
+- 对应中国时间 `06:30`
+
+如果你想改执行时间，可以编辑 [checkin.yml](.github/workflows/checkin.yml) 里的 `cron` 表达式。
+
+## 通知配置
+
+通知不是必须项。  
+如果你不配置通知，程序也会正常签到，只是结果只会出现在控制台和 GitHub Actions 日志里。
+
+### 方案一：PushPlus 微信通知
+
+如果你想在微信里收到运行汇总，在仓库 Secrets 里新增：
+
+- `PUSHPLUS_TOKEN`
+
+配置完成后，每次签到结束都会发送一条纯文本汇总。
+
+### 方案二：SMTP 邮件通知
+
+如果你想通过邮箱接收通知，在仓库 Secrets 里新增：
+
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USERNAME`
+- `SMTP_PASSWORD`
+- `SMTP_FROM`
+- `SMTP_TO`
+
+可选项：
+
+- `SMTP_USE_TLS`
+- `NOTIFY_TITLE_PREFIX`
+
+说明：
+
+- `SMTP_TO` 可以填写接收通知的邮箱地址
+- `SMTP_USE_TLS=false` 表示关闭 STARTTLS
+- `NOTIFY_TITLE_PREFIX` 可以自定义通知标题前缀
+
+## GitHub Actions 需要配置哪些 Secret
+
+最少只需要这一个：
+
+- `WEIBO_COOKIES`
+
+如果你还想开启通知，可以额外配置：
+
+- `PUSHPLUS_TOKEN`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USERNAME`
+- `SMTP_PASSWORD`
+- `SMTP_FROM`
+- `SMTP_TO`
+- `SMTP_USE_TLS`
+- `NOTIFY_TITLE_PREFIX`
+
+## 常见问题
+
+### 1. 运行失败，提示 Cookie 无效
+
+通常说明：
+
+- Cookie 过期了
+- Cookie 内容不完整
+- 微博登录状态已经失效
+
+建议重新从浏览器复制最新 Cookie。
+
+### 2. GitHub Actions 里运行失败
+
+优先检查：
+
+- `WEIBO_COOKIES` 是否已添加
+- Cookie 是否是一行一个账号
+- Secret 里有没有多余引号
+- GitHub Actions 是否已启用
+
+### 3. 本地可以跑，Actions 不稳定
+
+这种情况通常和平台风控、Cookie 新旧程度、运行时间点有关。  
+可以先更新 Cookie，再调整 workflow 执行时间。
+
+## 开发
+
+项目使用 `uv` 管理依赖。
+
+运行测试：
+
+```bash
+uv run pytest
+```
+
+## 注意事项
+
+- 自动签到存在账号风险，请自行评估后使用
+- 微博接口随时可能变化，失效时请优先检查 Cookie 和平台接口变化
+- 日志里不应该输出完整 Cookie，请不要把真实 Cookie 发给别人
