@@ -248,6 +248,90 @@ uv run python -m weibo_auto_signin.cli --config cookies.txt
 - `SMTP_USE_TLS=false` 表示关闭 STARTTLS
 - `NOTIFY_TITLE_PREFIX` 可以自定义通知标题前缀
 
+#### SMTP 参数分别是什么意思
+
+- `SMTP_HOST`：SMTP 服务器地址
+- `SMTP_PORT`：SMTP 服务器端口
+- `SMTP_USERNAME`：登录 SMTP 使用的账号
+- `SMTP_PASSWORD`：登录 SMTP 使用的密码或授权码
+- `SMTP_FROM`：发件人邮箱
+- `SMTP_TO`：收件人邮箱
+- `SMTP_USE_TLS`：是否启用 STARTTLS，默认启用
+
+注意：
+
+- 很多邮箱服务商不允许直接使用登录密码发信，而是要求使用 `SMTP 授权码`
+- 如果你发送失败，优先检查是不是用了普通登录密码
+- `SMTP_FROM` 一般要和 `SMTP_USERNAME` 对应的邮箱一致
+
+#### 如何获取 SMTP 配置
+
+不同邮箱服务商的页面不一样，但整体思路是一样的：
+
+1. 登录你的邮箱后台。
+2. 找到 `POP3/IMAP/SMTP` 或类似的邮箱客户端设置页面。
+3. 开启 `SMTP` 服务。
+4. 获取该邮箱提供的 `SMTP 服务器地址` 和 `端口`。
+5. 生成或查看 `SMTP 授权码`。
+6. 把这些信息填写到本项目的环境变量里。
+
+通常你真正需要准备的是：
+
+- SMTP 服务器地址
+- SMTP 端口
+- 邮箱账号
+- SMTP 授权码
+- 发件人邮箱
+- 收件人邮箱
+
+#### 如何在 GitHub Actions 里配置邮箱通知
+
+打开仓库：
+
+`Settings` -> `Secrets and variables` -> `Actions`
+
+然后分别添加这些 Secret：
+
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USERNAME`
+- `SMTP_PASSWORD`
+- `SMTP_FROM`
+- `SMTP_TO`
+
+可选添加：
+
+- `SMTP_USE_TLS`
+- `NOTIFY_TITLE_PREFIX`
+
+配置完成后，重新运行 `Weibo Check-in` workflow 即可。
+
+#### 如何在本地配置邮箱通知
+
+本地运行时可以直接设置环境变量：
+
+```bash
+export SMTP_HOST="你的 SMTP 服务器地址"
+export SMTP_PORT="你的 SMTP 端口"
+export SMTP_USERNAME="你的邮箱账号"
+export SMTP_PASSWORD="你的 SMTP 授权码"
+export SMTP_FROM="你的发件邮箱"
+export SMTP_TO="你的收件邮箱"
+uv run python -m weibo_auto_signin.cli --config cookies.txt
+```
+
+如果你的邮箱服务不使用 STARTTLS，可以额外设置：
+
+```bash
+export SMTP_USE_TLS="false"
+```
+
+#### 邮箱通知常见问题
+
+- 发信失败时，优先检查 `SMTP_PASSWORD` 是否填成了普通登录密码
+- 如果服务商要求 SSL/STARTTLS，请确认端口和加密方式匹配
+- 如果提示认证失败，先确认 `SMTP` 服务是否已经在邮箱后台开启
+
 ## GitHub Actions 需要配置哪些 Secret
 
 最少只需要这一个：
