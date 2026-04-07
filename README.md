@@ -2,8 +2,9 @@
 
 Minimal Weibo super-topic auto check-in CLI.
 
-The tool reads one or more account cookies from JSON config, checks each enabled
-account's followed super-topics, and attempts daily check-in for those topics.
+The tool reads one or more full Weibo cookie strings from a plain-text file,
+checks each account's followed super-topics, and attempts daily check-in for
+those topics.
 It is intended for local runs and GitHub Actions scheduled runs.
 
 ## What This Does Not Do
@@ -27,46 +28,27 @@ uv run pytest tests/test_smoke.py
 3. Create a local config file from the example:
 
 ```bash
-cp accounts.example.json accounts.json
+cp cookies.example.txt cookies.txt
 ```
 
 4. Replace the placeholder cookie values with your own Weibo cookie values.
 5. Run the CLI:
 
 ```bash
-uv run python -m weibo_auto_signin.cli --config accounts.json
-```
-
-To run only one named account from the config:
-
-```bash
-uv run python -m weibo_auto_signin.cli --config accounts.json --account main-account
+uv run python -m weibo_auto_signin.cli --config cookies.txt
 ```
 
 ## Config Format
 
-`accounts.json` must be a JSON object with a non-empty `accounts` array:
+`cookies.txt` is a plain-text file with one full cookie string per line:
 
-```json
-{
-  "accounts": [
-    {
-      "name": "main-account",
-      "cookie": "SUB=...; SUBP=...; SCF=...; ALF=...",
-      "enabled": true
-    }
-  ]
-}
+```text
+SUB=...; SUBP=...; SCF=...; ALF=...
+SUB=...; SUBP=...; SCF=...; ALF=...
 ```
 
-Fields:
-
-- `name`: Optional account label used in logs.
-- `cookie`: Required Weibo cookie string. Treat this as a secret.
-- `enabled`: Optional boolean. Disabled accounts are skipped.
-
-Do not commit real cookies. Keep real config in `accounts.json` locally or in a
-GitHub Actions repository secret.
+Blank lines are ignored. Do not commit real cookies. Keep real values in
+`cookies.txt` locally or in a GitHub Actions repository secret.
 
 ## GitHub Actions Setup
 
@@ -75,11 +57,18 @@ runs.
 
 1. Fork the repository.
 2. Open the fork's `Settings` > `Secrets and variables` > `Actions`.
-3. Add a repository secret named `WEIBO_ACCOUNTS_JSON`.
-4. Paste the full JSON config payload as the secret value.
+3. Add a repository secret named `WEIBO_COOKIES`.
+4. Paste one or more full cookie strings as the secret value, one per line.
 5. Enable GitHub Actions on the fork if GitHub prompts you to do so.
 6. Run the `Weibo Check-in` workflow manually from the `Actions` tab, or rely on
    the schedule.
+
+Example secret value:
+
+```text
+SUB=...; SUBP=...; SCF=...; ALF=...
+SUB=...; SUBP=...; SCF=...; ALF=...
+```
 
 The bundled schedule runs at `22:30` UTC, which is `06:30` in China Standard
 Time. Edit the cron expression in `.github/workflows/checkin.yml` if another

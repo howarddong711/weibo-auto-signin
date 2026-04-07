@@ -14,5 +14,5 @@ def test_checkin_workflow_exists() -> None:
 
     workflow = workflow_path.read_text(encoding="utf-8")
 
-    assert "WEIBO_ACCOUNTS_JSON" in workflow
+    assert "WEIBO_COOKIES" in workflow
     assert "weibo_auto_signin.cli" in workflow

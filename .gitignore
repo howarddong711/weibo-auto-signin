@@ -1,4 +1,4 @@
 .worktrees/
 __pycache__/
 .pytest_cache/
-accounts.json
+cookies.txt

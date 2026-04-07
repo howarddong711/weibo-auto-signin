@@ -49,8 +49,7 @@ def _append_topic_lines(
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Weibo super-topic auto check-in")
-    parser.add_argument("--config", default="accounts.json")
-    parser.add_argument("--account")
+    parser.add_argument("--config", default="cookies.txt")
     args = parser.parse_args(argv)
 
     logger = configure_logger(Path("logs"))
@@ -59,8 +58,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (OSError, ValueError) as exc:
         logger.error("Failed to load config %s: %s", args.config, exc)
         return 1
-    if args.account:
-        accounts = [account for account in accounts if account.name == args.account]
 
     results = run_accounts_checkin(accounts)
 

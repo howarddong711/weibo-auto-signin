@@ -136,7 +136,7 @@ def test_console_entrypoint_and_help_path_smoke() -> None:
     assert result.returncode == 0, result.stderr
     assert "Weibo super-topic auto check-in" in result.stdout
     assert "--config" in result.stdout
-    assert "--account" in result.stdout
+    assert "--account" not in result.stdout
 
 
 def test_configure_logger_closes_replaced_handlers_and_disables_propagation(tmp_path) -> None:

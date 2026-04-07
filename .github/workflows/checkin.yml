@@ -27,15 +27,15 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Create account config
+      - name: Create cookie config
         env:
-          WEIBO_ACCOUNTS_JSON: ${{ secrets.WEIBO_ACCOUNTS_JSON }}
+          WEIBO_COOKIES: ${{ secrets.WEIBO_COOKIES }}
         run: |
-          if [ -z "${WEIBO_ACCOUNTS_JSON}" ]; then
-            echo "::error::Missing WEIBO_ACCOUNTS_JSON repository secret"
+          if [ -z "${WEIBO_COOKIES}" ]; then
+            echo "::error::Missing WEIBO_COOKIES repository secret"
             exit 1
           fi
-          printf '%s' "${WEIBO_ACCOUNTS_JSON}" > accounts.json
+          printf '%s' "${WEIBO_COOKIES}" > cookies.txt
 
       - name: Run check-in
-        run: uv run python -m weibo_auto_signin.cli --config accounts.json
+        run: uv run python -m weibo_auto_signin.cli --config cookies.txt
