@@ -7,11 +7,22 @@ from weibo_auto_signin.client import Topic, WeiboClient, WeiboClientError
 
 
 class FakeResponse:
-    def __init__(self, *, headers=None, payload=None, status_error=None, json_error=None):
+    def __init__(
+        self,
+        *,
+        headers=None,
+        payload=None,
+        status_error=None,
+        json_error=None,
+        text="",
+        status_code=200,
+    ):
         self.headers = headers or {}
         self._payload = payload or {}
         self._status_error = status_error
         self._json_error = json_error
+        self.text = text
+        self.status_code = status_code
 
     def json(self):
         if self._json_error is not None:
@@ -146,6 +157,18 @@ class UnknownCheckinSession(FakeSession):
         return super().get(url, params=params, headers=headers)
 
 
+class HtmlCheckinSession(FakeSession):
+    def get(self, url, params=None, headers=None):
+        self.calls.append((url, params, headers))
+        if url == "https://weibo.com/p/aj/general/button":
+            return FakeResponse(
+                headers={"content-type": "text/html; charset=utf-8"},
+                json_error=json.JSONDecodeError("bad json", "<html>验证</html>", 0),
+                text="<html><title>验证</title><body>请先完成安全验证</body></html>",
+            )
+        return super().get(url, params=params, headers=headers)
+
+
 def test_bootstrap_session_sets_uid_and_xsrf_token() -> None:
     session = FakeSession()
     client = WeiboClient({"SUB": "1", "SUBP": "2"}, session=session)
@@ -230,6 +253,19 @@ def test_checkin_topic_reports_unknown_response_summary() -> None:
 
     assert result.ok is False
     assert result.message == "Unknown check-in response: code=100001 msg=需要验证"
+
+
+def test_checkin_topic_reports_non_json_response_diagnostic() -> None:
+    client = WeiboClient({"SUB": "1", "SUBP": "2"}, session=HtmlCheckinSession())
+
+    with pytest.raises(WeiboClientError) as exc_info:
+        client.checkin_topic(Topic(title="Topic A", topic_id="100808a"))
+
+    message = str(exc_info.value)
+    assert "invalid response payload" in message
+    assert "status=200" in message
+    assert "content-type=text/html; charset=utf-8" in message
+    assert "请先完成安全验证" in message
 
 
 def test_bootstrap_session_wraps_missing_xsrf_cookie() -> None:

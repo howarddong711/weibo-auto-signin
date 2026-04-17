@@ -207,9 +207,11 @@ class WeiboClient:
         try:
             payload = response.json()
         except ValueError as exc:
-            raise self._invalid_payload(action) from exc
+            raise self._invalid_payload(
+                action, detail=self._response_summary(response)
+            ) from exc
         if not isinstance(payload, Mapping):
-            raise self._invalid_payload(action)
+            raise self._invalid_payload(action, detail=self._response_summary(response))
         return payload
 
     def _require_non_empty(self, value: object, action: str, reason: str) -> str:
@@ -217,5 +219,19 @@ class WeiboClient:
             return value
         raise WeiboClientError(f"Failed to {action}: {reason}")
 
-    def _invalid_payload(self, action: str) -> WeiboClientError:
-        return WeiboClientError(f"Failed to {action}: invalid response payload")
+    def _invalid_payload(self, action: str, detail: str = "") -> WeiboClientError:
+        suffix = f" ({detail})" if detail else ""
+        return WeiboClientError(f"Failed to {action}: invalid response payload{suffix}")
+
+    def _response_summary(self, response: ResponseLike) -> str:
+        status_code = getattr(response, "status_code", "unknown")
+        content_type = response.headers.get("content-type", "unknown")
+        text = getattr(response, "text", "")
+        snippet = self._compact_text(text)[:180] if isinstance(text, str) else ""
+        parts = [f"status={status_code}", f"content-type={content_type}"]
+        if snippet:
+            parts.append(f"body={snippet}")
+        return " ".join(parts)
+
+    def _compact_text(self, text: str) -> str:
+        return " ".join(text.split())
