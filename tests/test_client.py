@@ -183,6 +183,15 @@ def test_default_session_uses_requests_session() -> None:
     assert isinstance(client.session, requests.Session)
 
 
+def test_session_uses_browser_like_user_agent() -> None:
+    session = FakeSession()
+    WeiboClient({"SUB": "1", "SUBP": "2"}, session=session)
+
+    assert "Mozilla/5.0" in session.headers["User-Agent"]
+    assert "Chrome/" in session.headers["User-Agent"]
+    assert session.headers["Accept-Language"] == "zh-CN,zh;q=0.9"
+
+
 def test_fetch_followed_topics_returns_topic_objects() -> None:
     session = FakeSession()
     client = WeiboClient({"SUB": "1", "SUBP": "2"}, session=session)
@@ -222,6 +231,21 @@ def test_checkin_topic_accepts_success_without_rank() -> None:
     assert result.message == "今日签到，经验值+4"
     assert result.experience == 4
     assert result.rank is None
+
+
+def test_checkin_topic_sends_browser_context_params() -> None:
+    session = FakeSession()
+    client = WeiboClient({"SUB": "1", "SUBP": "2"}, session=session)
+
+    client.checkin_topic(Topic(title="Topic A", topic_id="100808a"))
+
+    _url, params, headers = session.calls[-1]
+    assert params["timezone"] == "GMT+0800"
+    assert params["lang"] == "zh-cn"
+    assert params["plat"] == "Win32"
+    assert "Chrome/" in params["ua"]
+    assert params["screen"] == "2560*1440"
+    assert headers["Referer"] == "https://weibo.com/p/100808a/super_index"
 
 
 def test_checkin_topic_accepts_success_message_without_data_block() -> None:

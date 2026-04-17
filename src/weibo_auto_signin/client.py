@@ -11,6 +11,13 @@ import requests
 from weibo_auto_signin.models import TopicCheckinResult
 
 
+BROWSER_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"
+)
+
+
 class ResponseLike(Protocol):
     headers: Mapping[str, str]
 
@@ -48,7 +55,7 @@ class WeiboClient:
         self.session = session or requests.Session()
         self.session.headers.update(
             {
-                "User-Agent": "Mozilla/5.0",
+                "User-Agent": BROWSER_USER_AGENT,
                 "Accept-Language": "zh-CN,zh;q=0.9",
             }
         )
@@ -118,6 +125,11 @@ class WeiboClient:
                 "status": "0",
                 "id": topic.topic_id,
                 "location": "page_100808_super_index",
+                "timezone": "GMT+0800",
+                "lang": "zh-cn",
+                "plat": "Win32",
+                "ua": BROWSER_USER_AGENT,
+                "screen": "2560*1440",
                 "__rnd": str(int(time.time() * 1000)),
             },
             headers=self._with_referer(f"https://weibo.com/p/{topic.topic_id}/super_index"),
