@@ -123,30 +123,57 @@ class WeiboClient:
             headers=self._with_referer(f"https://weibo.com/p/{topic.topic_id}/super_index"),
         )
         if str(payload.get("code")) == "100000":
-            try:
-                data = payload["data"]
-                message = data["tipMessage"]
-                exp_match = re.search(r"(\d+)", message)
-                rank_match = re.search(r"(\d+)", data.get("alert_title", ""))
-                return TopicCheckinResult(
-                    title=topic.title,
-                    ok=True,
-                    message=message,
-                    experience=int(exp_match.group(1)) if exp_match else None,
-                    rank=int(rank_match.group(1)) if rank_match else None,
-                )
-            except (AttributeError, KeyError, TypeError) as exc:
-                raise self._invalid_payload("check in topic") from exc
+            return self._parse_success_checkin(topic, payload)
         if str(payload.get("code")) == "382004":
-            try:
-                return TopicCheckinResult(
-                    title=topic.title, ok=True, message=payload["msg"]
-                )
-            except KeyError as exc:
-                raise self._invalid_payload("check in topic") from exc
+            return TopicCheckinResult(
+                title=topic.title,
+                ok=True,
+                message=self._first_text(payload, "msg", "message") or "Already checked in",
+            )
         return TopicCheckinResult(
-            title=topic.title, ok=False, message="Unknown check-in response"
+            title=topic.title,
+            ok=False,
+            message=f"Unknown check-in response: {self._payload_summary(payload)}",
         )
+
+    def _parse_success_checkin(
+        self, topic: Topic, payload: Mapping[str, Any]
+    ) -> TopicCheckinResult:
+        data = payload.get("data")
+        data_payload = data if isinstance(data, Mapping) else {}
+        message = (
+            self._first_text(data_payload, "tipMessage", "msg", "message")
+            or self._first_text(payload, "tipMessage", "msg", "message")
+            or "Check-in succeeded"
+        )
+        rank_source = self._first_text(data_payload, "alert_title", "rank") or ""
+        exp_match = re.search(r"(\d+)", message)
+        rank_match = re.search(r"(\d+)", rank_source)
+        return TopicCheckinResult(
+            title=topic.title,
+            ok=True,
+            message=message,
+            experience=int(exp_match.group(1)) if exp_match else None,
+            rank=int(rank_match.group(1)) if rank_match else None,
+        )
+
+    def _first_text(self, payload: Mapping[str, Any], *keys: str) -> str:
+        for key in keys:
+            value = payload.get(key)
+            if isinstance(value, str) and value:
+                return value
+        return ""
+
+    def _payload_summary(self, payload: Mapping[str, Any]) -> str:
+        parts: list[str] = []
+        for key in ("code", "msg", "message", "ok"):
+            value = payload.get(key)
+            if value is not None:
+                parts.append(f"{key}={value}")
+        if parts:
+            return " ".join(parts)
+        keys = ", ".join(sorted(str(key) for key in payload.keys())[:8])
+        return f"keys=[{keys}]" if keys else "empty payload"
 
     def _with_referer(self, referer: str) -> dict[str, str]:
         headers = dict(self.session.headers)

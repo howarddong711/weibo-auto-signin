@@ -122,6 +122,30 @@ class RanklessSuccessSession(FakeSession):
         return super().get(url, params=params, headers=headers)
 
 
+class MessageOnlySuccessSession(FakeSession):
+    def get(self, url, params=None, headers=None):
+        self.calls.append((url, params, headers))
+        if url == "https://weibo.com/p/aj/general/button":
+            return FakeResponse(payload={"code": "100000", "msg": "签到成功"})
+        return super().get(url, params=params, headers=headers)
+
+
+class MinimalAlreadyCheckedInSession(FakeSession):
+    def get(self, url, params=None, headers=None):
+        self.calls.append((url, params, headers))
+        if url == "https://weibo.com/p/aj/general/button":
+            return FakeResponse(payload={"code": "382004"})
+        return super().get(url, params=params, headers=headers)
+
+
+class UnknownCheckinSession(FakeSession):
+    def get(self, url, params=None, headers=None):
+        self.calls.append((url, params, headers))
+        if url == "https://weibo.com/p/aj/general/button":
+            return FakeResponse(payload={"code": "100001", "msg": "需要验证"})
+        return super().get(url, params=params, headers=headers)
+
+
 def test_bootstrap_session_sets_uid_and_xsrf_token() -> None:
     session = FakeSession()
     client = WeiboClient({"SUB": "1", "SUBP": "2"}, session=session)
@@ -175,6 +199,37 @@ def test_checkin_topic_accepts_success_without_rank() -> None:
     assert result.message == "今日签到，经验值+4"
     assert result.experience == 4
     assert result.rank is None
+
+
+def test_checkin_topic_accepts_success_message_without_data_block() -> None:
+    client = WeiboClient({"SUB": "1", "SUBP": "2"}, session=MessageOnlySuccessSession())
+
+    result = client.checkin_topic(Topic(title="Topic A", topic_id="100808a"))
+
+    assert result.ok is True
+    assert result.message == "签到成功"
+    assert result.experience is None
+    assert result.rank is None
+
+
+def test_checkin_topic_accepts_already_checked_in_without_message() -> None:
+    client = WeiboClient(
+        {"SUB": "1", "SUBP": "2"}, session=MinimalAlreadyCheckedInSession()
+    )
+
+    result = client.checkin_topic(Topic(title="Topic A", topic_id="100808a"))
+
+    assert result.ok is True
+    assert result.message == "Already checked in"
+
+
+def test_checkin_topic_reports_unknown_response_summary() -> None:
+    client = WeiboClient({"SUB": "1", "SUBP": "2"}, session=UnknownCheckinSession())
+
+    result = client.checkin_topic(Topic(title="Topic A", topic_id="100808a"))
+
+    assert result.ok is False
+    assert result.message == "Unknown check-in response: code=100001 msg=需要验证"
 
 
 def test_bootstrap_session_wraps_missing_xsrf_cookie() -> None:
