@@ -4,8 +4,6 @@
 
 项目默认思路只有一件事：你提供整串微博 Cookie，程序自动读取关注的超话并尝试完成当天签到。
 
-English version: [docs/README.en.md](docs/README.en.md)
-
 ## 功能
 
 - 支持一行一个 Cookie，多账号批量签到
