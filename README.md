@@ -16,13 +16,6 @@ English version: [docs/README.en.md](docs/README.en.md)
 - 支持运行结束后发送汇总通知
 - 支持 `PushPlus` 和通用 `SMTP` 邮件通知
 
-## 不做什么
-
-- 不保存微博账号密码
-- 不通过账号密码自动登录微博
-- 不保证能绕过 Cookie 失效、平台风控或接口变更
-- 不在仓库测试里执行真实联网签到
-
 ## 环境要求
 
 - Python `3.13`
