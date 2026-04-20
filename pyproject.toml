@@ -16,6 +16,7 @@ weibo-auto-signin = "weibo_auto_signin.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.4.2"]
+login = ["playwright>=1.53.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/weibo_auto_signin"]

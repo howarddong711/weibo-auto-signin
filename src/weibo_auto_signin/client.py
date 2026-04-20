@@ -4,7 +4,9 @@ import re
 import time
 from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass
+from html import unescape
 from typing import Any, Protocol
+from urllib.parse import urljoin
 
 import requests
 
@@ -16,10 +18,13 @@ BROWSER_USER_AGENT = (
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"
 )
+REQUEST_TIMEOUT = 15.0
 
 
 class ResponseLike(Protocol):
     headers: Mapping[str, str]
+    text: str
+    url: str
 
     def json(self) -> Any: ...
 
@@ -35,6 +40,7 @@ class SessionLike(Protocol):
         url: str,
         params: Mapping[str, str | int] | None = None,
         headers: Mapping[str, str] | None = None,
+        timeout: float | None = None,
     ) -> ResponseLike: ...
 
 
@@ -50,9 +56,13 @@ class Topic:
 
 class WeiboClient:
     def __init__(
-        self, cookies: dict[str, str], session: SessionLike | None = None
+        self,
+        cookies: dict[str, str],
+        session: SessionLike | None = None,
+        timeout: float = REQUEST_TIMEOUT,
     ) -> None:
         self.session = session or requests.Session()
+        self.timeout = timeout
         self.session.headers.update(
             {
                 "User-Agent": BROWSER_USER_AGENT,
@@ -201,11 +211,54 @@ class WeiboClient:
         headers: Mapping[str, str] | None = None,
     ) -> ResponseLike:
         try:
-            response = self.session.get(url, params=params, headers=headers)
+            response = self._session_get(url, params=params, headers=headers)
+            response.raise_for_status()
+            response = self._follow_passport_refresh(response, headers=headers)
             response.raise_for_status()
             return response
         except requests.RequestException as exc:
             raise WeiboClientError(f"Failed to {action}: HTTP request failed") from exc
+
+    def _session_get(
+        self,
+        url: str,
+        *,
+        params: Mapping[str, str | int] | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> ResponseLike:
+        try:
+            return self.session.get(
+                url,
+                params=params,
+                headers=headers,
+                timeout=self.timeout,
+            )
+        except TypeError:
+            return self.session.get(url, params=params, headers=headers)
+
+    def _follow_passport_refresh(
+        self,
+        response: ResponseLike,
+        *,
+        headers: Mapping[str, str] | None = None,
+    ) -> ResponseLike:
+        refresh_url = self._extract_refresh_url(response)
+        if not refresh_url:
+            return response
+        return self._session_get(refresh_url, headers=headers)
+
+    def _extract_refresh_url(self, response: ResponseLike) -> str:
+        text = getattr(response, "text", "")
+        if not isinstance(text, str):
+            return ""
+        response_url = getattr(response, "url", "")
+        looks_like_passport = "login.sina.com.cn" in response_url or "passport" in text
+        if not looks_like_passport:
+            return ""
+        match = re.search(r"url=['\"]([^'\"]+)['\"]", unescape(text), re.IGNORECASE)
+        if not match:
+            return ""
+        return urljoin(response_url or "https://weibo.com", match.group(1))
 
     def _get_json(
         self,

@@ -10,6 +10,7 @@ English version: [docs/README.en.md](docs/README.en.md)
 
 - 支持一行一个 Cookie，多账号批量签到
 - 支持直接粘贴整串微博 Cookie
+- 支持扫码登录自动获取 Cookie
 - 支持本地命令行运行
 - 支持 GitHub Actions 手动触发和定时触发
 - 支持运行结束后发送汇总通知
@@ -17,7 +18,8 @@ English version: [docs/README.en.md](docs/README.en.md)
 
 ## 不做什么
 
-- 不负责帮你获取微博 Cookie
+- 不保存微博账号密码
+- 不通过账号密码自动登录微博
 - 不保证能绕过 Cookie 失效、平台风控或接口变更
 - 不在仓库测试里执行真实联网签到
 
@@ -40,6 +42,13 @@ English version: [docs/README.en.md](docs/README.en.md)
 uv sync
 ```
 
+如果你想使用扫码登录自动获取 Cookie，需要额外安装登录依赖和浏览器：
+
+```bash
+uv sync --extra login
+uv run playwright install chromium
+```
+
 复制示例配置：
 
 ```bash
@@ -51,6 +60,58 @@ cp cookies.example.txt cookies.txt
 ```bash
 uv run python -m weibo_auto_signin.cli --config cookies.txt
 ```
+
+## 扫码登录自动获取 Cookie
+
+如果你不想手动复制 Cookie，可以使用扫码登录：
+
+```bash
+uv run python -m weibo_auto_signin.cli login
+```
+
+运行后会打开一个浏览器窗口：
+
+1. 在浏览器里使用微博 App 扫码登录。
+2. 程序检测到登录成功后，会自动提取完整 Cookie。
+3. 程序会验证账号和关注超话列表是否能读取。
+4. 验证通过后，Cookie 会写入 `cookies.txt`。
+
+默认会覆盖 `cookies.txt`。如果你要添加多个微博账号，使用追加模式：
+
+```bash
+uv run python -m weibo_auto_signin.cli login --append
+```
+
+你也可以指定输出文件：
+
+```bash
+uv run python -m weibo_auto_signin.cli login --output cookies.txt
+```
+
+默认会使用 Playwright 自带的 Chromium。
+
+如果你想用本机安装的 Chrome 或 Edge 打开扫码窗口，可以这样运行：
+
+```bash
+uv run python -m weibo_auto_signin.cli login --browser chrome
+uv run python -m weibo_auto_signin.cli login --browser msedge
+```
+
+注意：这里不是接管系统里已经打开的默认浏览器窗口，而是启动一个可被程序读取 Cookie 的浏览器实例。
+
+如果浏览器没有自动弹出，先确认已经安装登录依赖：
+
+```bash
+uv sync --extra login
+uv run playwright install chromium
+```
+
+说明：
+
+- 扫码登录不会保存微博账号密码
+- 程序只会把登录后的 Cookie 写入本地文件
+- `cookies.txt` 已经被 `.gitignore` 忽略，不要把真实 Cookie 提交到仓库
+- 如果后续签到出现 `382006 权限错误`，建议重新运行扫码登录刷新 Cookie
 
 ## Cookie 格式
 

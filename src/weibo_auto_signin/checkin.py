@@ -20,6 +20,7 @@ from weibo_auto_signin.models import (
 
 TopicDelay = Callable[[], float]
 Sleeper = Callable[[float], None]
+TopicProgress = Callable[[int, int, Topic, TopicCheckinResult], None]
 
 
 class CheckinClient(Protocol):
@@ -42,6 +43,7 @@ def run_accounts_checkin(
     client_factory: Callable[[dict[str, str]], CheckinClient] = WeiboClient,
     topic_delay: TopicDelay = _random_topic_delay,
     sleep: Sleeper = time.sleep,
+    on_topic_result: TopicProgress | None = None,
 ) -> list[AccountCheckinResult]:
     return [
         run_account_checkin(
@@ -49,6 +51,7 @@ def run_accounts_checkin(
             client_factory=client_factory,
             topic_delay=topic_delay,
             sleep=sleep,
+            on_topic_result=on_topic_result,
         )
         for account in accounts
     ]
@@ -60,6 +63,7 @@ def run_account_checkin(
     client_factory: Callable[[dict[str, str]], CheckinClient] = WeiboClient,
     topic_delay: TopicDelay = _random_topic_delay,
     sleep: Sleeper = time.sleep,
+    on_topic_result: TopicProgress | None = None,
 ) -> AccountCheckinResult:
     try:
         parsed_cookie = _parse_valid_cookie(account.cookie)
@@ -94,6 +98,7 @@ def run_account_checkin(
         topics,
         topic_delay=topic_delay,
         sleep=sleep,
+        on_topic_result=on_topic_result,
     )
     return AccountCheckinResult(
         account_name=account.name,
@@ -116,12 +121,16 @@ def _checkin_topics(
     *,
     topic_delay: TopicDelay,
     sleep: Sleeper,
+    on_topic_result: TopicProgress | None,
 ) -> list[TopicCheckinResult]:
     topic_results: list[TopicCheckinResult] = []
     for index, topic in enumerate(topics):
         if index > 0:
             sleep(max(0.0, topic_delay()))
-        topic_results.append(_checkin_topic(client, topic))
+        result = _checkin_topic(client, topic)
+        topic_results.append(result)
+        if on_topic_result is not None:
+            on_topic_result(index + 1, len(topics), topic, result)
     return topic_results
 
 

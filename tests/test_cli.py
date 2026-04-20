@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from weibo_auto_signin import cli
+from weibo_auto_signin.browser_login import BrowserLoginResult
 from weibo_auto_signin.cli import build_summary_lines
 from weibo_auto_signin.config import ConfigError
 from weibo_auto_signin.logging import configure_logger
@@ -211,7 +212,9 @@ def test_main_keeps_success_result_when_notification_send_fails(
     monkeypatch.setattr(
         cli,
         "run_accounts_checkin",
-        lambda _accounts: [AccountCheckinResult(account_name="main", ok=True)],
+        lambda _accounts, **_kwargs: [
+            AccountCheckinResult(account_name="main", ok=True)
+        ],
     )
     monkeypatch.setenv("PUSHPLUS_TOKEN", "token")
     monkeypatch.setattr("weibo_auto_signin.notify.build_pushplus_notifier", lambda: notifier)
@@ -221,3 +224,64 @@ def test_main_keeps_success_result_when_notification_send_fails(
     assert result == 0
     assert "Completed run: 1 success, 0 failed" in logger.infos
     assert expected_warning in logger.warnings
+
+
+def test_login_command_saves_verified_cookie(monkeypatch, tmp_path) -> None:
+    logger = FakeLogger()
+    saved = []
+
+    monkeypatch.setattr(cli, "configure_logger", lambda _path: logger)
+    monkeypatch.setattr(
+        cli,
+        "login_with_browser",
+        lambda **kwargs: saved.append(("browser", kwargs))
+        or BrowserLoginResult(cookie="SUB=1; SUBP=2"),
+    )
+    monkeypatch.setattr(cli, "verify_cookie", lambda _cookie: ("10001", "demo", 3))
+    monkeypatch.setattr(
+        cli,
+        "save_cookie",
+        lambda path, cookie, append=False: saved.append((path, cookie, append)),
+    )
+
+    result = cli.main(
+        [
+            "login",
+            "--output",
+            str(tmp_path / "cookies.txt"),
+            "--append",
+            "--browser",
+            "chrome",
+        ]
+    )
+
+    assert result == 0
+    assert saved == [
+        (
+            "browser",
+            {
+                "timeout_seconds": 180,
+                "headless": False,
+                "browser_name": "chrome",
+            },
+        ),
+        (str(tmp_path / "cookies.txt"), "SUB=1; SUBP=2", True),
+    ]
+    assert "Verified account demo (10001), followed topics: 3" in logger.infos
+
+
+def test_login_command_reports_browser_login_error(monkeypatch) -> None:
+    logger = FakeLogger()
+
+    def fail_login(**_kwargs):
+        raise cli.BrowserLoginError("playwright missing")
+
+    monkeypatch.setattr(cli, "configure_logger", lambda _path: logger)
+    monkeypatch.setattr(cli, "login_with_browser", fail_login)
+
+    result = cli.main(["login"])
+
+    assert result == 1
+    assert logger.errors == [
+        "Failed to login and save cookie: playwright missing"
+    ]
