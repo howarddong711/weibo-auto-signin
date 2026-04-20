@@ -1,3 +1,8 @@
 """Weibo auto sign-in package."""
 
-__version__ = "0.1.0"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("weibo-auto-signin")
+except PackageNotFoundError:
+    __version__ = "unknown"

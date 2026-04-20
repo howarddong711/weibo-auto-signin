@@ -7,7 +7,7 @@ name = "weibo-auto-signin"
 version = "0.1.0"
 description = "Weibo super-topic auto sign-in CLI"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 authors = [{ name = "Open Source Contributors" }]
 dependencies = ["requests>=2.32.0"]
 
